@@ -27,6 +27,7 @@
 
 	list		P=PIC12F1840, F=INHX32, ST=OFF, MM=OFF, R=DEC, X=ON
 	#include	P12F1840.inc
+	errorlevel	-302	;Suppress "register not in bank 0" messages
 	__config	_CONFIG1, _FOSC_INTOSC & _WDTE_OFF & _PWRTE_ON & _MCLRE_OFF & _CP_OFF & _CPD_OFF & _BOREN_OFF & _CLKOUTEN_OFF & _IESO_OFF & _FCMEN_OFF
 			;_FOSC_INTOSC	Internal oscillator, I/O on RA5
 			;_WDTE_OFF	Watchdog timer disabled
@@ -257,10 +258,6 @@ Init
 	movlw	B'00101110'	; currently floating
 	movwf	TRISA
 
-	banksel	PIE1		;Receive interrupt enabled when peripheral
-	movlw	1 << RCIE	; interrupts enabled
-	movwf	PIE1
-
 	movlw	12		;Delay approximately 2 ms at an instruction
 	movwf	AP_BUF		; clock of 2 MHz until the PLL kicks in and the
 PllWait	DELAY	110		; instruction clock gears up to 8 MHz
@@ -439,6 +436,7 @@ AdbFsaTlt
 	bcf	AP_FLAG,AP_RISE	;No longer need to catch rising edges
 	movlw	-128		;Shorten the timeout period to 512 us, which is
 	movwf	TMR0		; still too long to wait for a transmission
+	bsf	INTCON,TMR0IE	;Timer interrupts whether we transmit or not
 	btfss	AP_FLAG,AP_TXI	;If the user doesn't wish to transmit, just
 	retlw	low AdbFsaTltEnd; wait for data to start
 	movf	TMR1H,W		;Get a pseudorandom between 0 and 15, adjust it
@@ -448,8 +446,7 @@ AdbFsaTlt
 	movwf	TMR0		; 240us to wait before transmitting
 	movlw	B'11000000'	;Set the shift register so it outputs a 1 start
 	movwf	AP_SR		; bit and then loads data from the buffer
-	bsf	INTCON,TMR0IE	;Set timer to interrupt and bring us to the
-	retlw	low AdbFsaTxBitD; transmission start state
+	retlw	low AdbFsaTxBitD;Bring us to the transmission start state
 
 AdbFsaTxBitD
 	btfsc	BSR,0		;If we're here because of a timer interrupt,
@@ -506,8 +503,12 @@ AFTxBU0	movf	AP_SR,W		;If the down phase let the shift register stay
 	retlw	low AdbFsaTxBitD;Timer will take us to the down phase again
 
 AdbFsaTltEnd
+	btfsc	BSR,0		;If we're here because of a timer interrupt, the
+	bra	AFTltE0		; transmission never started, so skip ahead
 	clrf	TMR0		;This state is the end of Tlt and the start of
 	retlw	low AdbFsaRxStrt; host or other device transmitting data
+AFTltE0	bsf	AP_FLAG,AP_DONE	;Set the done flag because the data payload is
+	retlw	low AdbFsaIdle	; effectively done and return to idle
 
 AdbFsaRxStrt
 	movlw	0x01		;Start bit should be 1, but who cares, just set
@@ -524,11 +525,11 @@ AdbFsaRxBitD
 
 AdbFsaRxBitU
 	btfss	BSR,0		;If we got here because of a timer overflow, the
-	bra	AFRxBD0		; data payload must be done, so disable catching
+	bra	AFRxBU0		; data payload must be done, so disable catching
 	bcf	AP_FLAG,AP_RISE	; rising edges, set the done flag, and return to
 	bsf	AP_FLAG,AP_DONE	; idle
 	retlw	low AdbFsaIdle	; "
-AFRxBD0	movlw	31		;Compensate for us setting Timer0 to time out
+AFRxBU0	movlw	31		;Compensate for us setting Timer0 to time out
 	addwf	TMR0,F		; early
 	btfsc	AP_DTMR,7	;If the down time is over 127 (508 us,
 	bcf	AP_FLAG,AP_RISE	; ridiculous), throw up our hands and wait for

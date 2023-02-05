@@ -434,8 +434,8 @@ AdbFsaSrqEnd
 
 AdbFsaTlt
 	bcf	AP_FLAG,AP_RISE	;No longer need to catch rising edges
-	movlw	-128		;Shorten the timeout period to 512 us, which is
-	movwf	TMR0		; still too long to wait for a transmission
+	movlw	-65		;Shorten the timeout period to 260 us, which is
+	movwf	TMR0		; slightly longer than Tlt is expected to be
 	bsf	INTCON,TMR0IE	;Timer interrupts whether we transmit or not
 	btfss	AP_FLAG,AP_TXI	;If the user doesn't wish to transmit, just
 	retlw	low AdbFsaTltEnd; wait for data to start

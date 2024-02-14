@@ -1,3 +1,4 @@
+from datetime import datetime
 from itertools import zip_longest
 import sys
 
@@ -79,7 +80,6 @@ class AdbAnalyzer:
       command = self.serial_obj.read(1)
       if command == b'': continue
       command = command[0]
-      if self.device_filter is not None and command_target(command) != self.device_filter: continue
       command_str = format_command(command)
       if command_has_payload(command):
         data_len = self.serial_obj.read(1)
@@ -91,6 +91,7 @@ class AdbAnalyzer:
           command_str = ' '.join((command_str, format_data(data), format_gv_modem_string(data)))
         else:
           command_str = ' '.join((command_str, format_data(data)))
+      if self.device_filter is not None and command_target(command) != self.device_filter: continue
       if command_str == last_str:
         last_count += 1
       else:
@@ -100,5 +101,6 @@ class AdbAnalyzer:
           sys.stdout.write('\n')
         last_str = command_str
         last_count = 1
+        sys.stdout.write(datetime.now().strftime('(%H:%M:%S) '))
         sys.stdout.write(command_str)
         sys.stdout.flush()

@@ -390,9 +390,9 @@ AdbFsaIdle
 
 AdbFsaCmdBit
 	btfsc	AP_DTMR,7	;If either the down time or the up time is over
-	retlw	AdbFsaIdle	; 127 (508 us, ridiculous), throw up our hands
+	retlw	low AdbFsaIdle	; 127 (508 us, ridiculous), throw up our hands
 	btfsc	TMR0,7		; and wait for an attention pulse
-	retlw	AdbFsaIdle	; "
+	retlw	low AdbFsaIdle	; "
 	movf	TMR0,W		;Sum the value of Timer0 (the up time) with the
 	addwf	AP_DTMR,W	; down time, then divide by two to get the mid-
 	lsrf	WREG,W		; point; subtract the up time so carry contains
